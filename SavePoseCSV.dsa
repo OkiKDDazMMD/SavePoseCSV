@@ -1,0 +1,588 @@
+// DAZ Studio version 4.10.0.123 filetype DAZ Script
+
+	var nMax =  1.0;
+	var nMin = -1.0;
+	var aProperty = [ "XRotate", "YRotate", "ZRotate", "XTranslate", "YTranslate", "ZTranslate" ];
+
+	// Define whether or not the user can cancel
+	var bCancellable = true;
+
+	var nMaxSelectedSkeletons = Scene.getNumSelectedSkeletons();
+
+	if(nMaxSelectedSkeletons>1 || nMaxSelectedSkeletons<1){
+		MessageBox.critical( qsTr("Selected Only Figure"), qsTr("Critical"), qsTr("&OK") );
+		return;
+	}
+
+	//if(Scene)
+	var aSelectedSkeletonList = Scene.getSelectedSkeletonList();
+	var oSelectedSkeleton = aSelectedSkeletonList[0];
+
+	var oFileNameScript = DzFile(getScriptFileName());
+
+	// Create a basic dialog
+	var oDlg = new DzBasicDialog();
+
+	// Get the wrapped widget for the dialog
+	var oDlgWgt = oDlg.getWidget();
+	
+	// Set the title of the dialog
+	oDlg.caption = "Save Pose CSV";
+	
+	// Strip the space for a settings key
+	var sKey = oDlg.caption.replace( / /g, "" ) + "Dlg";
+	
+	// Set an [unique] object name on the wrapped dialog widget;
+	// this is used for recording position and size separately
+	// from all other [uniquely named] DzBasicDialog instances
+	oDlgWgt.objectName = sKey;
+
+	var oVGBDlg = new DzVGroupBox( oDlg );
+
+	var wVGBFolder = new DzVGroupBox( oVGBDlg );
+	wVGBFolder.title = "Input CSV :";
+	wVGBFolder.columns = 2;
+	var g_wEditFolder = new DzLineEdit( wVGBFolder );
+	g_wEditFolder.minWidth = 200;
+	g_wEditFolder.text = String("%1/%2").arg(oFileNameScript.path()).arg("pose.csv");
+	var wButtonFolder = addButtonOnGroupBox( wVGBFolder, "Select Folder", selectFolder );
+
+	var g_wTextBrowser = new DzTextEdit(oVGBDlg);
+	g_wTextBrowser.readOnly = true;
+	var oTextBrowser = g_wTextBrowser.getWidget();
+	g_wTextBrowser.objectName = String("%1LocalLView").arg( sKey );
+
+	var wButton = addButtonOnGroupBox( oVGBDlg, "Save", processing);
+
+	// Add the GroupBox to the dialog
+	oDlg.addWidget( oVGBDlg, 0, DzWidget.AlignCenter );
+
+	// Get the minimum size of the dialog
+	var sizeHint = oDlgWgt.minimumSizeHint;
+	
+	// Set the fixed size of the dialog
+//	oDlg.setFixedSize( sizeHint.width, sizeHint.height );
+	
+	// Set the text on the accept button
+	oDlg.setAcceptButtonText("Close");
+	// Hide the cancel button
+	oDlg.showCancelButton( false );
+
+	oDlg.exec();
+
+
+/*********************************************************************/
+//
+/*********************************************************************/
+function addButtonOnGroupBox( gb, text, func ){
+	var wButton = new DzPushButton( gb );
+	wButton.text = text;
+	connect( wButton, "clicked()", func );
+	return( wButton );
+}
+
+
+/*********************************************************************/
+//
+/*********************************************************************/
+function selectFolder(){
+	var sFile = FileDialog.doFileDialog(true, "Select a CSV File", oFileNameScript.path(), "CSV Files (*.csv)" );
+	if( sFile ){
+		g_wEditFolder.text = sFile;
+	}
+}
+
+
+/*********************************************************************/
+//
+function processing()
+{
+
+/**********************************************************************/
+// Source: http://docs.daz3d.com/doku.php/public/software/dazstudio/4/referenceguide/scripting/api_reference/samples/file_io/save_duf_pose/start
+
+/*********************************************************************/
+	// Get the asset IO manager
+	var oAssetIOMgr = App.getAssetIOMgr();
+	// Define the class name of the asset filter we want to use
+	var sClassName = "DzPoseAssetFilter";
+	// Find the index of the asset filter with the class name we want
+	var nAssetIOFilter = oAssetIOMgr.findFilter( sClassName );
+	// If we did not find an asset filter with the class name we wanted
+	if( nAssetIOFilter < 0 ){
+		// Inform the user
+		g_wTextBrowser.append( text( "An asset filter with the class name " + "\"%1\" could not be found.").arg( sClassName ) );
+		
+		// We are done...
+		return;
+	}
+	
+	// Get the asset filter at the prescribed index
+	var oAssetIOFilter = oAssetIOMgr.getFilter( nAssetIOFilter );
+	// If we do not have a valid asset filter
+	if( !oAssetIOFilter ){
+		// Inform the user
+		g_wTextBrowser.append( text( "An asset filter with the class name " + "\"%1\" could not be found.").arg( sClassName ) );
+		
+		// We are done...
+		return;
+	}
+	
+	// Create a settings object
+	var oSettings = new DzFileIOSettings();
+	
+	// Get the default settings
+	oAssetIOFilter.getDefaultOptions( oSettings );
+
+	// Define whether or not to show options
+	var bShowOptions = false;
+	var bOptionsShown = true;
+	
+	// Get the root of the primary selection
+	var oRootNode = getRootNode( Scene.getPrimarySelection() );
+	
+	// If we had a node selected, get its name otherwise use a default
+	var sRootName = (oRootNode ? oRootNode.getName() : "Genesis8Female");
+	var sRootLabel = (oRootNode ? oRootNode.getLabel() : "");
+	
+	// Set the default options; this can be used to set
+	// options before the dialog is displayed
+	setDefaultOptions( oSettings, sRootLabel );
+	
+	// Set the current frame options
+	oSettings.setBoolValue( "SaveCurFrame", true );
+
+	// Initialize
+	var aNodeNames = [];
+
+	// Define whether we only want the selected nodes (false),
+	// or whether we want selected recursive (true)
+	var bRecursive = true;
+
+	// Declare working variables
+	var oNode, oRoot, oParent;
+	var bAdd;
+
+	// Create a array helper object
+	var oArrayHelper = new DzArrayHelper();
+
+	// Initialize an array for collecting the nodes
+	var aNodes = [];
+		
+	// Get the selected nodes from the scene
+	var aSelectedNodes = Scene.getSelectedNodeList();
+	// Iterate over the selected nodes
+	for( var i = 0, nNodes = aSelectedNodes.length; i < nNodes; i += 1 ){
+		// Get the 'current' node
+		oNode = aSelectedNodes[ i ];
+			
+		// Get the root of the node
+		oRoot = getRootNode( oNode );
+			
+		// If the node is not in the same object as the primary selection
+		if( !pointersAreEqual( oRootNode, oRoot ) ){
+			// Next!!
+			continue;
+		}
+
+		// Initialize
+		bAdd = true;
+
+		// If we are recursing
+		if( bRecursive ){
+			// Get the node parent
+			oParent = oNode.getNodeParent();
+			// Climb the node hierarchy
+			while( oParent ){
+				// If the parent is selected
+				if( oParent.isSelected() ){
+					// Update the flag
+					bAdd = false;
+					// We are done climbing...
+					break;
+				}
+
+				// Get the next higher ancestor
+				oParent = oParent.getNodeParent();
+			}
+		}
+
+		// If we are not adding the node
+		if( !bAdd ){
+			// Next!!
+			continue;
+		}
+
+		// Add the the node to the array; if it is not already there
+		aNodes = oArrayHelper.addToArray( aNodes, oNode );
+	}
+		
+	// Iterate over the nodes
+	for( var i = 0; i < aNodes.length; i += 1 ){
+		// Collect node names
+		aNodeNames = aNodeNames.concat( getNodeNames( aNodes[ i ], bRecursive ) );
+	}
+
+	// Set common property options for multiple nodes
+	setCommonNodePropertyOptions( oSettings, aNodeNames, [ "XRotate", "YRotate", "ZRotate", "XTranslate", "YTranslate", "ZTranslate" ] );
+		
+	// Set whether to bypass the filter that culls properties based on
+	// their type; use this with caution as this could lead to
+	// unexpected results for the user of the generated file
+	oSettings.setBoolValue( "BypassFilter", false );
+
+	// Set the required options; override user settings if needed
+	setRequiredOptions( oSettings, !bOptionsShown );
+
+
+	var oFileCSV = new DzFile(g_wEditFolder.text);
+
+	var oStringHelper = new DzStringHelper();
+
+	if ( oFileCSV.open( oFileCSV.ReadOnly ) ) {
+		var aAllText = oFileCSV.readLines();
+	}
+	oFileCSV.close();
+
+	var aData = new Array(aAllText.length);
+	var bLoad = false;
+
+	for( var i = 0; i < aAllText.length; i++ ){
+		var aLineText = oStringHelper.stripCRLF(aAllText[i]).split(",");
+
+		aData[i] = new Array( aLineText.length);
+
+		for( var j = 0; j < aLineText.length; j++ ){
+			aData[i][j] = aLineText[j];
+		}
+	}
+
+	startProgress( "Set Frame Pose", aAllText.length, bCancellable, true );
+
+	//
+	var oContentMgr = App.getContentMgr();
+	var regxPair = new RegExp( "^-?\\d+\\.?\\d*$" );
+
+	for( var row = 0; row < aAllText.length; row++ ){
+
+		if(aData[row][1]=="0"){
+			zeroPose(oSelectedSkeleton);
+		}
+
+		//
+		if( aData[row][2].length>0 ){
+			oSelectedSkeleton = Scene.findSkeletonByLabel(aData[row][2]);
+			if( oSelectedSkeleton != null ){
+				Scene.selectAllNodes( false );
+				oSelectedSkeleton.select( true );
+			}else{
+				g_wTextBrowser.append( qsTr("Error Select Figure (Column 3) " + (row+1).toString() + "Line" ) );
+				return;		
+			}
+		}
+
+		//
+		if(aData[row].length<5){
+
+			if( aData[row][3].length>0 ){
+				oContentMgr.openFile(aData[row][3], true);
+			}
+
+		}else{
+
+			var oFindBone = oSelectedSkeleton.findBoneByLabel(aData[row][3]);
+
+			if( oFindBone != null ){
+
+				for(var col= 4; col < aData[row].length; col++ ){
+					var oProperty = oFindBone.findProperty( aProperty[col-4] );
+				
+					if( aData[row][col].search(regxPair)>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nValue = parseFloat(aData[row][col]);
+						oProperty.setValue( nValue );
+					}
+					else if(aData[row][col].toLowerCase().search("max")>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nMax = oProperty.getMax();
+						oProperty.setValue( nMax );	
+					}
+					else if(aData[row][col].toLowerCase().search("min")>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nMin = oProperty.getMin();
+						oProperty.setValue( nMin );	
+					}
+					else if(aData[row][col].toLowerCase().search("def")>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nDefault = oProperty.getDefaultValue();
+						oProperty.setValue( nDefault );	
+					}
+				}
+			}else{
+				g_wTextBrowser.append( qsTr("Error Node Label (Column 4) " + aData[row][3] + " not find " + (row+1).toString() + "Line" ) );
+				return;
+			}
+		}
+
+		// Use the asset manager to save a file, using the filter and defined settings
+		var sTempFile = aData[row][0];
+
+		if(sTempFile.length>0){
+
+			if(sTempFile.search(":")<0){
+				sTempFile = String("%1/%2").arg(oFileNameScript.path()).arg(sTempFile);
+
+//g_wTextBrowser.append( String("Add PATH=%1").arg(sTempFile) );
+			}
+
+			var oError = oAssetIOMgr.doSaveWithOptions( oAssetIOFilter, oSettings, false, sTempFile, oFileNameScript.path(), ""  );
+
+			// If there was no error
+			if( oError.valueOf() == 0x00000000 ){
+			// If there was an error
+			} else {
+				MessageBox.warning("Error:" + getErrorMessage( oError ) , qsTr("Error"), qsTr("&OK"), qsTr("&Cancel") );
+			}
+		}
+
+		stepProgress( 1 );
+	}
+
+	finishProgress();
+	oAssetIOFilter.deleteLater();
+
+	g_wTextBrowser.append("Complete");
+
+}
+
+/*********************************************************************/
+//
+function setDefault( oNode, aStrProperty )
+{
+	for( var i = 0 ; i < aStrProperty.length ; i++ ){
+		var oProperty = oNode.findProperty( aStrProperty[i] );
+		if( oProperty != null ){
+			var nDefault = oProperty.getDefaultValue();
+			oProperty.setValue( nDefault );	
+		}
+	}
+}
+
+
+/*********************************************************************/
+//
+function zeroPose( oSkeleton )
+{
+	var aAllBones = oSkeleton.getAllBones();
+
+	for( var loop = 0 ; loop < aAllBones.length ; loop++ ){
+		setDefault( aAllBones[loop], aProperty);
+	}
+}
+
+
+/*********************************************************************/
+// DzNode : A function for getting the root of a node
+function getRootNode( oNode )
+{
+	// If we have a node and it is a bone
+	if( oNode && inheritsType( oNode, ["DzBone"] ) ){
+		// We want the skeleton
+		return oNode.getSkeleton();
+	}
+
+	// Return the original node
+	return oNode;
+}
+
+
+/*********************************************************************/
+// Boolean : A function for testing whether or not a QObject instance
+// inherits one of a list of types
+function inheritsType( oObject, aTypeNames )
+{
+	// If the object does not define the 'inherits' function
+	if( !oObject || typeof( oObject.inherits ) != "function" ){
+		// We are done... it is not a QObject
+		return false;
+	}
+
+	// Iterate over the list of type names
+	for( var i = 0, nTypes = aTypeNames.length; i < nTypes; i += 1 ){
+		// If the object does not inherit the 'current' type
+		if( !oObject.inherits( aTypeNames[i] ) ){
+			// Next!!
+			continue;
+		}
+
+		// Return the result
+		return true;
+	}
+
+	// Return the result
+	return false;
+}
+
+
+/*********************************************************************/
+// void : A function for setting the default options
+function setDefaultOptions( oSettings, sRootLabel )
+{
+	// If the root label is not empty
+	if( !sRootLabel.isEmpty() ){
+		// Set the label of the root node to find it in the scene;
+		// this can be used to override selection within the scene
+		oSettings.setStringValue( "RootLabel", sRootLabel );
+	}
+}
+
+
+/*********************************************************************/
+// Array : A function for getting an array of node names
+function getNodeNames( oNode, bRecurse )
+{
+	// If we do not have a node
+	if( !oNode ){
+		// We are done...
+		return [];
+	}
+
+	// Intialize the array with the name of the node passed in
+	var aNames = [ oNode.name ];
+
+	// If we are recursing
+	if( bRecurse ){
+		// Iterate over the node's children
+		for( var i = 0, nNodes = oNode.getNumNodeChildren(); i < nNodes; i += 1 ){
+			// Concatenate the names of the child nodes, recursively
+			aNames = aNames.concat( getNodeNames( oNode.getNodeChild( i ), true ) );
+		}
+	}
+
+	// Return the names
+	return aNames;
+}
+
+
+/*********************************************************************/
+// void : A function for setting the required options
+function setRequiredOptions( oSettings, bShowOptions )
+{
+	// Set the initial state of the compress file checkbox
+	oSettings.setBoolValue( "CompressOutput", false );
+
+	// Do not to show the options
+	oSettings.setBoolValue( "RunSilent", !bShowOptions );
+}
+
+
+/*********************************************************************/
+// void : A function for setting the property options for an element
+function setElementPropertyOptions( oSettings, sElementSettingsKey, sElementName, aPropNames, bSubItems )
+{
+	// Get the (nested) settings that hold the named element and properties
+	var oElementsSettings = oSettings.getSettingsValue( sElementSettingsKey );
+	// If the object doesn't already exist
+	if( !oElementsSettings ){
+		// Create it
+		oElementsSettings = oSettings.setSettingsValue( sElementSettingsKey );
+	}
+	
+	// Get the (nested) settings object for the element
+	var oElementSettings = oElementsSettings.getSettingsValue( sElementName );
+	// If the object doesn't already exist
+	if( !oElementSettings ){
+		// Create it
+		oElementSettings = oElementsSettings.setSettingsValue( sElementName );
+	}
+	
+	// Declare working variable
+	var vPropertyItem;
+	var sPropertyName;
+	var oPropertySettings, oSubItemSettings;
+	
+	// Iterate over the property items
+	for( var i = 0; i < aPropNames.length; i += 1 ){
+		// Get the 'current' property item
+		vPropertyItem = aPropNames[ i ];
+		
+		// If the filter doesn't support property sub-items,
+		// or the property item is a string
+		if( !bSubItems || typeof( vPropertyItem ) == "string" ){
+			// Set the property name to the item
+			sPropertyName = vPropertyItem;
+			
+			// Add a setting wherein the key is the index in the list
+			// and the value is the property name
+			oElementSettings.setStringValue( String( i ), sPropertyName );
+		// If the property item is an array
+		} else if( typeof( vPropertyItem ) == "object" && Array.isArray( vPropertyItem ) ){
+			// Set the property name to the first item, which should be a string
+			sPropertyName = (vPropertyItem.length > 0 &&
+				typeof( vPropertyItem[ 0 ] ) == "string" ? vPropertyItem[ 0 ] : "");
+			// If the name was not set
+			if( sPropertyName.isEmpty() ){
+				// Next!!
+				continue;
+			}
+			
+			// Get the (nested) settings object for the property
+			oPropertySettings = oElementSettings.getSettingsValue( i );
+			// If the object doesn't already exist
+			if( !oPropertySettings ){
+				// Create it
+				oPropertySettings = oElementSettings.setSettingsValue( i );
+			}
+			
+			// Set the name setting
+			oPropertySettings.setStringValue( "name", sPropertyName );
+			// Get the (nested) settings object for the subitems
+			oSubItemSettings = oPropertySettings.getSettingsValue( "subitems" );
+			// If the object doesn't already exist
+			if( !oSubItemSettings ){
+				// Create it
+				oSubItemSettings = oPropertySettings.setSettingsValue( "subitems" );
+			}
+			
+			// Iterate over the items, skippping the first element
+			for( var j = 1; j < vPropertyItem.length; j += 1 ){
+				oSubItemSettings.setStringValue( String( j - 1 ), vPropertyItem[ j ] )
+			}
+		}
+	}
+}
+
+
+/*********************************************************************/
+// void : A function for setting the property options for a node
+function setNodePropertyOptions( oSettings, sNodeName, aPropNames )
+{
+	// Set the property options for the named node
+	setElementPropertyOptions( oSettings, "NodeNames", sNodeName, aPropNames, false );
+}
+
+
+/*********************************************************************/
+// void : A function for setting common property options for multiple nodes
+function setCommonNodePropertyOptions( oSettings, aNodeNames, aPropNames )
+{
+	// Iterate over the node names array
+	for( var i = 0; i < aNodeNames.length; i += 1 ){
+		// Set the property options for the 'current' node name
+		setNodePropertyOptions( oSettings, aNodeNames[ i ], aPropNames );
+	}
+}
+
+
