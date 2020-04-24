@@ -358,6 +358,21 @@ function processing()
 		}
 
 		stepProgress( 1 );
+
+		// If the user is allowed to cancel
+		if( bCancellable ){
+			// Process events so that we can check user interaction
+			processEvents();
+ 
+			// If the user cancelled
+			if( progressIsCancelled() ){
+				// Post a status update
+				App.statusLine( text( "User cancelled simple progress test." ) );
+				// We are done...
+				break;
+			}
+		}
+
 	}
 
 	finishProgress();
@@ -446,6 +461,7 @@ function setDefaultOptions( oSettings, sRootLabel )
 		// this can be used to override selection within the scene
 		oSettings.setStringValue( "RootLabel", sRootLabel );
 	}
+
 }
 
 
@@ -481,7 +497,7 @@ function getNodeNames( oNode, bRecurse )
 function setRequiredOptions( oSettings, bShowOptions )
 {
 	// Set the initial state of the compress file checkbox
-	oSettings.setBoolValue( "CompressOutput", false );
+	oSettings.setBoolValue( "CompressOutput", true );
 
 	// Do not to show the options
 	oSettings.setBoolValue( "RunSilent", !bShowOptions );
