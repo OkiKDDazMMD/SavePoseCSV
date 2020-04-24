@@ -1,0 +1,112 @@
+// DAZ Studio version 4.10.0.123 filetype DAZ Script
+
+	// Create a basic dialog
+	var oDlg = new DzBasicDialog();
+
+	// Get the wrapped widget for the dialog
+	var oDlgWgt = oDlg.getWidget();
+	
+	// Set the title of the dialog
+	oDlg.caption = "CurrentParameterPose";
+	
+	// Strip the space for a settings key
+	var sKey = oDlg.caption.replace( / /g, "" ) + "Dlg";
+	
+	// Set an [unique] object name on the wrapped dialog widget;
+	// this is used for recording position and size separately
+	// from all other [uniquely named] DzBasicDialog instances
+	oDlgWgt.objectName = sKey;
+
+	var oVGBDlg = new DzVGroupBox( oDlg );
+
+	var wTextBrowser = new DzTextEdit(oVGBDlg);
+	wTextBrowser.readOnly = true;
+	var oTextBrowser = wTextBrowser.getWidget();
+	wTextBrowser.objectName = String("%1LocalLView").arg( sKey );
+
+	// Add the GroupBox to the dialog
+	oDlg.addWidget( oVGBDlg, 0, DzWidget.AlignCenter );
+
+	// Get the minimum size of the dialog
+	var sizeHint = oDlgWgt.minimumSizeHint;
+	
+	// Set the fixed size of the dialog
+//	oDlg.setFixedSize( sizeHint.width, sizeHint.height );
+	
+	// Set the text on the accept button
+	oDlg.setAcceptButtonText("Close");
+	// Hide the cancel button
+	oDlg.showCancelButton( false );
+
+//http://docs.daz3d.com/doku.php/artzone/wiki/user/rbtwhiz/technotes/daz_script/node_properties/start
+//Getting the properties associated with a node.
+
+	var aAllBones;
+
+	if(Scene.getNumSkeletons()>0){
+		var aSkeletons = Scene.getSkeletonList();
+
+		var bNotfind = true;
+		for( var i = 0; i < aSkeletons.length; i++ ){
+			var sLabel = aSkeletons[i].getLabel();
+			if(sLabel.indexOf("Genesis 8")>-1){
+				bNotfind = false;
+				aAllBones = aSkeletons[i].getAllBones();
+				wTextBrowser.append( aSkeletons[i].getLabel() );
+				break;
+			}
+		}
+
+		if(bNotfind){
+			wTextBrowser.append("not exist Genesis 8 Figure");
+		}
+	}
+	else{
+		wTextBrowser.append("not exist Figure");
+	}
+	
+	var bCheck = true;
+
+	for( var i = 0; i < aAllBones.length; i++ ){
+		var bX = aAllBones[i].getXRotControl().currentValueIsDefaultValue();
+		var bY = aAllBones[i].getYRotControl().currentValueIsDefaultValue();
+		var bZ = aAllBones[i].getZRotControl().currentValueIsDefaultValue();
+		var bXP = aAllBones[i].getXPosControl().currentValueIsDefaultValue();
+		var bYP = aAllBones[i].getYPosControl().currentValueIsDefaultValue();
+		var bZP = aAllBones[i].getZPosControl().currentValueIsDefaultValue();
+
+		if(!bX || !bY || !bZ || !bXP || !bYP || !bZP){
+			var sLabel = aAllBones[i].getLabel();
+			wTextBrowser.append( sLabel );
+			bCheck = false;
+
+			if(!bX){
+				wTextBrowser.append( String( 'RotX(%1)=%2' ).arg( aAllBones[i].getXRotControl().getLabel() ).arg( aAllBones[i].getXRotControl().getValue() ) );
+			}
+			if(!bY){
+				wTextBrowser.append( String( 'RotY(%1)=%2' ).arg( aAllBones[i].getYRotControl().getLabel() ).arg( aAllBones[i].getYRotControl().getValue() ) );
+			}
+			if(!bZ){
+				wTextBrowser.append( String( 'RotZ(%1)=%2' ).arg( aAllBones[i].getZRotControl().getLabel() ).arg( aAllBones[i].getZRotControl().getValue() ) );
+			}
+
+			if(!bXP){
+				wTextBrowser.append( String( 'PosX(%1)=%2' ).arg( aAllBones[i].getXPosControl().getLabel() ).arg( aAllBones[i].getXPosControl().getValue() ) );
+			}
+			if(!bYP){
+				wTextBrowser.append( String( 'PosY(%1)=%2' ).arg( aAllBones[i].getYPosControl().getLabel() ).arg( aAllBones[i].getYPosControl().getValue() ) );
+			}
+			if(!bZP){
+				wTextBrowser.append( String( 'PosZ(%1)=%2' ).arg( aAllBones[i].getZPosControl().getLabel() ).arg( aAllBones[i].getZPosControl().getValue() ) );
+			}
+
+			wTextBrowser.append( " " );
+		}
+	}
+
+	if(bCheck){
+		wTextBrowser.append( "Zero Pose" );
+	}
+
+	oDlg.exec();
+
