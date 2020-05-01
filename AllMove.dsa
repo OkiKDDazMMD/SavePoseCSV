@@ -1,0 +1,241 @@
+// DAZ Studio version 4.10.0.123 filetype DAZ Script
+
+	var s_bShiftPressed = false;
+
+	// If the "Action" global transient is defined, and its the correct type
+	if( typeof( Action ) != "undefined" && Action.inherits( "DzScriptAction" ) ){
+		// If the current key sequence for the action is not pressed
+		if( !App.isKeySequenceDown( Action.shortcut ) ){
+			updateModifierKeyState();
+		}
+	// If the "Action" global transient is not defined
+	} else if( typeof( Action ) == "undefined" ) {
+		updateModifierKeyState();
+	}
+
+
+	// Create a basic dialog
+	var oDlg = new DzBasicDialog();
+
+	// Get the wrapped widget for the dialog
+	var oDlgWgt = oDlg.getWidget();
+	
+	// Set the title of the dialog
+	oDlg.caption = "AllMove";
+	
+	// Strip the space for a settings key
+	var sKey = oDlg.caption.replace( / /g, "" ) + "Dlg";
+	
+	// Set an [unique] object name on the wrapped dialog widget;
+	// this is used for recording position and size separately
+	// from all other [uniquely named] DzBasicDialog instances
+	oDlgWgt.objectName = sKey;
+
+	var oVGBDlg = new DzVGroupBox( oDlg );
+
+
+	var wTextBrowser = new DzTextEdit(oVGBDlg);
+	wTextBrowser.readOnly = true;
+	var oTextBrowser = wTextBrowser.getWidget();
+	wTextBrowser.objectName = String("%1LocalLView").arg( sKey );
+
+	
+
+
+	var oSkeletons = Scene.getSkeleton(0);
+
+	if(oSkeletons!=null){
+		wTextBrowser.append( oSkeletons.getLabel() );
+		var aAllBones = oSkeletons.getAllBones();
+
+		for( var nBones = 0; nBones < aAllBones.length; nBones++ ){
+
+			if( aAllBones[nBones].getXRotControl() != null && !aAllBones[nBones].getXRotControl().isLocked() ){
+				if( aAllBones[nBones].getXRotControl().isClamped() ){
+					if( aAllBones[nBones].getXRotControl().getMax()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getXRotControl().getMax() )
+															.arg( aAllBones[nBones].getXRotControl().getLabel() )
+															.arg( aAllBones[nBones].getXRotControl().name )
+															  );
+					}
+					if( aAllBones[nBones].getXRotControl().getMin()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getXRotControl().getMin() )
+															.arg( aAllBones[nBones].getXRotControl().getLabel() )
+															.arg( aAllBones[nBones].getXRotControl().name )
+															  );
+					}
+				}else{
+					if(s_bShiftPressed){
+						wTextBrowser.append( String( '%1,No Clamped XRotate,%2,%3' ).arg( aAllBones[nBones].getLabel() )
+																		.arg( aAllBones[nBones].getXRotControl().getLabel() )
+																		.arg( aAllBones[nBones].getXRotControl().name )
+																		  );
+					}
+				}
+			}
+
+			if( aAllBones[nBones].getYRotControl() != null && !aAllBones[nBones].getYRotControl().isLocked() ){
+				if( aAllBones[nBones].getYRotControl().isClamped() ){
+					if( aAllBones[nBones].getYRotControl().getMax()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getYRotControl().getMax() )
+															.arg( aAllBones[nBones].getYRotControl().getLabel() )
+															.arg( aAllBones[nBones].getYRotControl().name )
+															  );
+					}
+					if( aAllBones[nBones].getYRotControl().getMin()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getYRotControl().getMin() )
+															.arg( aAllBones[nBones].getYRotControl().getLabel() )
+															.arg( aAllBones[nBones].getYRotControl().name )
+															  );
+					}
+				}else{
+					if(s_bShiftPressed){
+						wTextBrowser.append( String( '%1,No Clamped YRotate,%2,%3' ).arg( aAllBones[nBones].getLabel() )
+																		.arg( aAllBones[nBones].getYRotControl().getLabel() )
+																		.arg( aAllBones[nBones].getYRotControl().name )
+																		  );
+					}
+				}
+			}
+
+			if( aAllBones[nBones].getZRotControl() != null && !aAllBones[nBones].getZRotControl().isLocked() ){
+				if( aAllBones[nBones].getZRotControl().isClamped() ){
+					if( aAllBones[nBones].getZRotControl().getMax()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getZRotControl().getMax() )
+															.arg( aAllBones[nBones].getZRotControl().getLabel() )
+															.arg( aAllBones[nBones].getZRotControl().name )
+															  );
+					}
+					if( aAllBones[nBones].getZRotControl().getMin()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getZRotControl().getMin() )
+															.arg( aAllBones[nBones].getZRotControl().getLabel() )
+															.arg( aAllBones[nBones].getZRotControl().name )
+															  );
+					}
+				}else{
+					if(s_bShiftPressed){
+						wTextBrowser.append( String( '%1,No Clamped ZRotate,%2,%3' ).arg( aAllBones[nBones].getLabel() )
+																		.arg( aAllBones[nBones].getZRotControl().getLabel() )
+																		.arg( aAllBones[nBones].getZRotControl().name )
+																		  );
+					}
+				}
+			}
+
+			if( aAllBones[nBones].getXPosControl() != null && !aAllBones[nBones].getXPosControl().isLocked() ){
+				if( aAllBones[nBones].getXPosControl().isClamped() ){
+					if( aAllBones[nBones].getXPosControl().getMax()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getXPosControl().getMax() )
+															.arg( aAllBones[nBones].getXPosControl().getLabel() )
+															.arg( aAllBones[nBones].getXPosControl().name )
+															  );
+					}
+					if( aAllBones[nBones].getXPosControl().getMin()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getXPosControl().getMin() )
+															.arg( aAllBones[nBones].getXPosControl().getLabel() )
+															.arg( aAllBones[nBones].getXPosControl().name )
+															  );
+					}
+				}else{
+					if(s_bShiftPressed){
+						wTextBrowser.append( String( '%1,No Clamped XPos,%2,%3' ).arg( aAllBones[nBones].getLabel() )
+																		.arg( aAllBones[nBones].getXPosControl().getLabel() )
+																		.arg( aAllBones[nBones].getXPosControl().name )
+																		  );
+					}
+				}
+			}
+
+			if( aAllBones[nBones].getYPosControl() != null && !aAllBones[nBones].getYPosControl().isLocked() ){
+				if( aAllBones[nBones].getYPosControl().isClamped() ){
+					if( aAllBones[nBones].getYPosControl().getMax()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getYPosControl().getMax() )
+															.arg( aAllBones[nBones].getYPosControl().getLabel() )
+															.arg( aAllBones[nBones].getYPosControl().name )
+															  );
+					}
+					if( aAllBones[nBones].getYPosControl().getMin()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getYPosControl().getMin() )
+															.arg( aAllBones[nBones].getYPosControl().getLabel() )
+															.arg( aAllBones[nBones].getYPosControl().name )
+															  );
+					}
+				}else{
+					if(s_bShiftPressed){
+						wTextBrowser.append( String( '%1,No Clamped YPos,%2,%3' ).arg( aAllBones[nBones].getLabel() )
+																		.arg( aAllBones[nBones].getYPosControl().getLabel() )
+																		.arg( aAllBones[nBones].getYPosControl().name )
+																		  );
+					}
+				}
+			}
+
+			if( aAllBones[nBones].getZPosControl() != null && !aAllBones[nBones].getZPosControl().isLocked() ){
+				if( aAllBones[nBones].getZPosControl().isClamped() ){
+					if( aAllBones[nBones].getZPosControl().getMax()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getZPosControl().getMax() )
+															.arg( aAllBones[nBones].getZPosControl().getLabel() )
+															.arg( aAllBones[nBones].getZPosControl().name )
+														  	);
+					}
+					if( aAllBones[nBones].getZPosControl().getMin()!=0 ){
+						wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( aAllBones[nBones].getLabel() )
+															.arg( aAllBones[nBones].getZPosControl().getMin() )
+															.arg( aAllBones[nBones].getZPosControl().getLabel() )
+															.arg( aAllBones[nBones].getZPosControl().name )
+															  );
+					}
+				}else{
+					if(s_bShiftPressed){
+						wTextBrowser.append( String( '%1,No Clamped ZPos,%2,%3' ).arg( aAllBones[nBones].getLabel() )
+																		.arg( aAllBones[nBones].getZPosControl().getLabel() )
+																		.arg( aAllBones[nBones].getZPosControl().name )
+																		  );
+					}
+				}
+			}
+
+		}
+	}
+	else{
+		MessageBox.information("not exist Figure" , qsTr("MyScript"), qsTr("&OK") );
+		return;
+	}
+
+	// Add the GroupBox to the dialog
+	oDlg.addWidget( oVGBDlg, 0, DzWidget.AlignCenter );
+
+	// Get the minimum size of the dialog
+	var sizeHint = oDlgWgt.minimumSizeHint;
+	
+	// Set the fixed size of the dialog
+//	oDlg.setFixedSize( sizeHint.width, sizeHint.height );
+	
+	// Set the text on the accept button
+	oDlg.setAcceptButtonText("Close");
+	// Hide the cancel button
+	oDlg.showCancelButton( false );
+
+	oDlg.exec();
+
+
+/*********************************************************************/
+// void : A function for updating the keyboard modifier state
+function updateModifierKeyState(){
+	// Get the current modifier key state
+	var nModifierState = App.modifierKeyState();
+	// Update variables that hold modifier key state
+	s_bShiftPressed = (nModifierState & 0x02000000) != 0;
+}
+
