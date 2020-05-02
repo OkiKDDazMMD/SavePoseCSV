@@ -1,0 +1,31 @@
+// DAZ Studio version 4.10.0.123 filetype DAZ Script
+
+
+	if( Scene.getNumSelectedNodes() > 0 ){
+		var aSelectedNodeList = Scene.getSelectedNodeList();
+
+		for( var i = 0; i < aSelectedNodeList.length; i++ ){
+			median( aSelectedNodeList[i].getXRotControl() );
+			median( aSelectedNodeList[i].getYRotControl() );
+			median( aSelectedNodeList[i].getZRotControl() );
+		}
+	}
+	else{
+		MessageBox.information("Not Selected Nodes" , qsTr("MyScript"), qsTr("&OK") );
+	}
+
+
+/*********************************************************************/
+//
+/*********************************************************************/
+function median(oProperty){
+	
+	if( oProperty.isLocked() ){
+		return;
+	}
+	else{
+		var nDifference = (oProperty.getMax() - oProperty.getMin())/2;
+		oProperty.setValue(nDifference + oProperty.getMin() );
+	}
+
+}
