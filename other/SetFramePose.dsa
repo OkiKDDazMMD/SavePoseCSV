@@ -1,0 +1,244 @@
+// DAZ Studio version 4.10.0.123 filetype DAZ Script
+
+	var nMax =  1.0;
+	var nMin = -1.0;
+	var aProperty = [ "XRotate", "YRotate", "ZRotate", "XTranslate", "YTranslate", "ZTranslate" ];
+
+	// Define whether or not the user can cancel
+	var bCancellable = true;
+
+	//if(Scene)
+	var aSelectedSkeletonList = Scene.getSelectedSkeletonList();
+	var oSelectedSkeleton = aSelectedSkeletonList[0];
+
+	var oFileNameScript = DzFile(getScriptFileName());
+
+	// Create a basic dialog
+	var oDlg = new DzBasicDialog();
+
+	// Get the wrapped widget for the dialog
+	var oDlgWgt = oDlg.getWidget();
+	
+	// Set the title of the dialog
+	oDlg.caption = "Set Frame Pose";
+	
+	// Strip the space for a settings key
+	var sKey = oDlg.caption.replace( / /g, "" ) + "Dlg";
+	
+	// Set an [unique] object name on the wrapped dialog widget;
+	// this is used for recording position and size separately
+	// from all other [uniquely named] DzBasicDialog instances
+	oDlgWgt.objectName = sKey;
+
+	var oVGBDlg = new DzVGroupBox( oDlg );
+
+	var wVGBFolder = new DzVGroupBox( oVGBDlg );
+	wVGBFolder.title = "Input CSV :";
+	wVGBFolder.columns = 2;
+	var g_wEditFolder = new DzLineEdit( wVGBFolder );
+	g_wEditFolder.minWidth = 200;
+	g_wEditFolder.text = String("%1/%2").arg(oFileNameScript.path()).arg("pose.csv");
+	g_wEditFolder.readOnly = true
+	var wButtonFolder = addButtonOnGroupBox( wVGBFolder, "Select Folder", selectFolder );
+
+	var g_wTextBrowser = new DzTextEdit(oVGBDlg);
+	g_wTextBrowser.readOnly = true;
+	var oTextBrowser = g_wTextBrowser.getWidget();
+	g_wTextBrowser.objectName = String("%1LocalLView").arg( sKey );
+
+	var wButton = addButtonOnGroupBox( oVGBDlg, "Set", processing);
+
+	// Add the GroupBox to the dialog
+	oDlg.addWidget( oVGBDlg, 0, DzWidget.AlignCenter );
+
+	// Get the minimum size of the dialog
+	var sizeHint = oDlgWgt.minimumSizeHint;
+	
+	// Set the fixed size of the dialog
+//	oDlg.setFixedSize( sizeHint.width, sizeHint.height );
+	
+	// Set the text on the accept button
+	oDlg.setAcceptButtonText("Close");
+	// Hide the cancel button
+	oDlg.showCancelButton( false );
+
+	oDlg.exec();
+
+
+/*********************************************************************/
+//
+/*********************************************************************/
+function addButtonOnGroupBox( gb, text, func ){
+	var wButton = new DzPushButton( gb );
+	wButton.text = text;
+	connect( wButton, "clicked()", func );
+	return( wButton );
+}
+
+
+/*********************************************************************/
+//
+/*********************************************************************/
+function selectFolder(){
+	var sFile = FileDialog.doFileDialog(true, "Select a CSV File", oFileNameScript.path(), "CSV Files (*.csv)" );
+	if( sFile ){
+		g_wEditFolder.text = sFile;
+	}
+}
+
+
+/*********************************************************************/
+//
+function processing()
+{
+
+	var oFileCSV = new DzFile(g_wEditFolder.text);
+
+	var oStringHelper = new DzStringHelper();
+
+	if ( oFileCSV.open( oFileCSV.ReadOnly ) ) {
+		var aAllText = oFileCSV.readLines();
+	}
+	oFileCSV.close();
+
+	var aData = new Array(aAllText.length);
+	var nMaxFrame = -1;
+	var bLoad = false;
+	var nFrame;
+
+	for( var i = 0; i < aAllText.length; i++ ){
+		var aLineText = oStringHelper.stripCRLF(aAllText[i]).split(",");
+
+		aData[i] = new Array( aLineText.length);
+
+		nFrame = parseInt(aLineText[0]);
+		if( nFrame < -1 ){
+			g_wTextBrowser.append( qsTr("Error Frame Number minus (Column 1) " + (i+1).toString() + "Line" ) );
+			return;		
+		}
+		if( nFrame > nMaxFrame ){
+			nMaxFrame = nFrame;
+		}
+		for( var j = 0; j < aLineText.length; j++ ){
+			aData[i][j] = aLineText[j];
+		}
+	}
+
+	startProgress( "Set Frame Pose", aAllText.length, bCancellable, true );
+
+	//
+	var tick = Scene.getTimeStep();
+	var oTimeRange = DzTimeRange(0, nMaxFrame*tick);
+	Scene.setAnimRange(oTimeRange);
+	Scene.setPlayRange(oTimeRange);
+
+	var oContentMgr = App.getContentMgr();
+	var regxPair = new RegExp( "^-?\\d+\\.?\\d*$" );
+
+	for( var row = 0; row < aAllText.length; row++ ){
+
+		nFrame = parseInt(aData[row][0]);
+		Scene.setFrame( nFrame );
+
+		if(aData[row][1]=="0"){
+			zeroPose(oSelectedSkeleton);
+		}
+
+		//
+		if( aData[row][2].length>0 ){
+			oSelectedSkeleton = Scene.findSkeletonByLabel(aData[row][2]);
+			if( oSelectedSkeleton != null ){
+				Scene.selectAllNodes( false );
+				oSelectedSkeleton.select( true );
+			}else{
+				g_wTextBrowser.append( qsTr("Error Select Figure (Column 3) " + (row+1).toString() + "Line" ) );
+				return;		
+			}
+		}
+
+		//
+		if(aData[row].length<5){
+
+			if( aData[row][3].length>0 ){
+				oContentMgr.openFile(aData[row][3], true);
+			}
+
+		}else{
+
+			var oFindBone = oSelectedSkeleton.findBoneByLabel(aData[row][3]);
+
+			if( oFindBone != null ){
+
+				for(var col= 4; col < aData[row].length; col++ ){
+					var oProperty = oFindBone.findProperty( aProperty[col-4] );
+				
+					if( aData[row][col].search(regxPair)>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nValue = parseFloat(aData[row][col]);
+						oProperty.setValue( nValue );
+					}
+					else if(aData[row][col].toLowerCase().search("max")>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nMax = oProperty.getMax();
+						oProperty.setValue( nMax );	
+					}
+					else if(aData[row][col].toLowerCase().search("min")>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nMin = oProperty.getMin();
+						oProperty.setValue( nMin );	
+					}
+					else if(aData[row][col].toLowerCase().search("def")>-1 ){
+						if( oProperty.isLocked() ){
+							g_wTextBrowser.append( qsTr("Error Property Locked " + aProperty[col-4] + " (Column " + col.toString() + ") " + (row+1).toString() + "Line Value=" + aData[row][col] ) );
+							return;
+						}
+						var nDefault = oProperty.getDefaultValue();
+						oProperty.setValue( nDefault );	
+					}
+				}
+			}else{
+				g_wTextBrowser.append( qsTr("Error Node Label (Column 4) " + aData[row][3] + " not find " + (row+1).toString() + "Line" ) );
+				return;
+			}
+		}
+		stepProgress( 1 );
+	}
+
+	finishProgress();
+	g_wTextBrowser.append("Complete");
+
+}
+
+/*********************************************************************/
+//
+function setDefault( oNode, aStrProperty )
+{
+	for( var i = 0 ; i < aStrProperty.length ; i++ ){
+		var oProperty = oNode.findProperty( aStrProperty[i] );
+		if( oProperty != null ){
+			var nDefault = oProperty.getDefaultValue();
+			oProperty.setValue( nDefault );	
+		}
+	}
+}
+
+
+/*********************************************************************/
+//
+function zeroPose( oSkeleton )
+{
+	var aAllBones = oSkeleton.getAllBones();
+
+	for( var loop = 0 ; loop < aAllBones.length ; loop++ ){
+		setDefault( aAllBones[loop], aProperty);
+	}
+}
