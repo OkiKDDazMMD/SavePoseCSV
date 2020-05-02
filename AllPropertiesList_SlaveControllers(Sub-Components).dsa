@@ -1,0 +1,141 @@
+// DAZ Studio version 4.10.0.123 filetype DAZ Script
+
+	var nMaxSelectedSkeletons = Scene.getNumSelectedSkeletons();
+
+	if(nMaxSelectedSkeletons!=1){
+		MessageBox.critical( qsTr("Selected Only One Skeleton"), qsTr("Critical"), qsTr("&OK") );
+		return;
+	}
+
+	// Create a basic dialog
+	var oDlg = new DzBasicDialog();
+
+	// Get the wrapped widget for the dialog
+	var oDlgWgt = oDlg.getWidget();
+	
+	// Set the title of the dialog
+	oDlg.caption = "AllPropertiesList";
+	
+	// Strip the space for a settings key
+	var sKey = oDlg.caption.replace( / /g, "" ) + "Dlg";
+	
+	// Set an [unique] object name on the wrapped dialog widget;
+	// this is used for recording position and size separately
+	// from all other [uniquely named] DzBasicDialog instances
+	oDlgWgt.objectName = sKey;
+
+	var oVGBDlg = new DzVGroupBox( oDlg );
+
+
+	var wTextBrowser = new DzTextEdit(oVGBDlg);
+	wTextBrowser.readOnly = true;
+	var oTextBrowser = wTextBrowser.getWidget();
+	wTextBrowser.objectName = String("%1LocalLView").arg( sKey );
+
+
+	var oSkeleton = Scene.getSelectedSkeleton(0);
+
+//	var oPropertyGroups = oSkeleton.getPropertyGroups();
+//	var aAllPaths = oPropertyGroups.getAllPaths();
+//	var aListProperty = oSkeleton.getPropertyList();
+
+	var aListPrivateProperty = oSkeleton.getPrivatePropertyList();
+	
+//	wTextBrowser.append(oSkeleton.getNumPrivateProperties().toString());
+//	wTextBrowser.append(aListPrivateProperty.length.toString());
+//	for( var i = 0; i < aListPrivateProperty.length; i += 1 ){
+//		wTextBrowser.append(aListPrivateProperty[i].getLabel());
+//	}
+
+
+//http://docs.daz3d.com/doku.php/artzone/wiki/user/rbtwhiz/technotes/daz_script/node_properties/start
+//Getting the properties associated with a node.
+
+	const oNODE = Scene.getPrimarySelection(); 
+	if( oNODE ){
+
+		var oProperty, oOwner;
+
+
+//		const aPROPERTIES = oNODE.getPropertyList();
+//		for( var i = 0; i < aPROPERTIES.length; i++ ){
+//			oProperty = aPROPERTIES[ i ];
+//			oOwner = oProperty.getOwner();
+//			wTextBrowser.append( String( '%1,%2,%3' ).arg( oOwner.className() ).arg( oProperty.name ).arg( oProperty.getLabel() ) );
+//		}
+
+
+		const aPROPERTIES = getNodeProperties( oNODE, true, true );
+		var sName;
+
+		for( var i = 0; i < aPROPERTIES.length; i++ ){
+			oProperty = aPROPERTIES[ i ];
+			oOwner = oProperty.getOwner();
+			if( oOwner.inherits( 'DzNode' ) ){
+				sName = oProperty.name;
+				wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( oOwner.className() ).arg( oProperty.name ).arg( oProperty.getLabel() ).arg( oProperty.getPath() ) );
+			}
+			else{
+				sName = oOwner.name;
+				wTextBrowser.append( String( '%1,%2,%3,%4' ).arg( oOwner.className() ).arg( oOwner.name ).arg( oProperty.getLabel() ).arg( oProperty.getPath() ) );
+			}
+
+			var nControllers = oProperty.getNumSlaveControllers();
+			var aListControllers = oProperty.getSlaveControllerList();
+
+//			var nControllers = oProperty.getNumControllers();
+//			var aListControllers = oProperty.getControllerList();
+
+//http://docs.daz3d.com/doku.php/public/software/dazstudio/4/referenceguide/scripting/api_reference/object_index/erclink_dz
+
+			for( var j = 0; j < nControllers; j++ ){
+				var oController = aListControllers[j];
+				if( oController.inherits( 'DzERCLink' ) ){
+					wTextBrowser.append( String( ',%1,%2,%3,%4,%5' ).arg( sName ).arg( j.toString() ).arg( oController.description ).arg( oController.slaveDescription ).arg( oController.scalar ) );
+				}
+			}
+		}
+	}
+
+	// Add the GroupBox to the dialog
+	oDlg.addWidget( oVGBDlg, 0, DzWidget.AlignCenter );
+
+	// Get the minimum size of the dialog
+	var sizeHint = oDlgWgt.minimumSizeHint;
+	
+	// Set the fixed size of the dialog
+//	oDlg.setFixedSize( sizeHint.width, sizeHint.height );
+	
+	// Set the text on the accept button
+	oDlg.setAcceptButtonText("Close");
+	// Hide the cancel button
+	oDlg.showCancelButton( false );
+
+	oDlg.exec();
+
+///////////////////////////////////////////////////////////////////////////////
+//
+function getGroupProperties( oGROUP, bTRAVERSE, bRECURSE ){
+	var aProperties = new Array();
+	if( !oGROUP ){ return aProperties; }
+	else{
+		const nPROPERTIES = oGROUP.getNumProperties();
+		for( var i = 0; i < nPROPERTIES; i++ ){
+			aProperties.push( oGROUP.getProperty( i ) );
+		}
+ 
+		if( bRECURSE ){ aProperties = aProperties.concat( getGroupProperties( oGROUP.getFirstChild(), bTRAVERSE, bRECURSE ) ); }
+		if( bTRAVERSE ){ aProperties = aProperties.concat( getGroupProperties( oGROUP.getNextSibling(), bTRAVERSE, bRECURSE ) ); }
+	}
+ 
+	return aProperties;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//
+function getNodeProperties( oNODE, bTRAVERSE, bRECURSE ){
+	const oPROPERTY_GROUP_TREE = oNODE.getPropertyGroups();
+	const oPROPERTY_GROUP = oPROPERTY_GROUP_TREE.getFirstChild();
+ 
+	return getGroupProperties( oPROPERTY_GROUP, bTRAVERSE, bRECURSE );
+}
